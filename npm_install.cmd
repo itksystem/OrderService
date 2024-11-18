@@ -1,0 +1,1 @@
+npm install openfsm-account-dto@latest openfsm-permissions-dto@latest openfsm-permissions-dto@latest openfsm-user-dto@latest openfsm-account-helper@latest openfsm-transaction-helper@latest openfsm-user-helper@latest openfsm-client-producer-amqp@latest openfsm-mail-notification-producer@latest openfsm-database-connection-producer@latest 

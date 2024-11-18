@@ -1,0 +1,1 @@
+docker build -t itksystem/warehouse-service .

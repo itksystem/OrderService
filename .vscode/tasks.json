@@ -1,0 +1,13 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "npm",
+			"script": "analyze",
+			"path": "swagger-editor",
+			"problemMatcher": [],
+			"label": "npm: analyze - swagger-editor",
+			"detail": "source-map-explorer 'dist/swagger-editor-bundle.js'"
+		}
+	]
+}
