@@ -5,15 +5,7 @@ const common = require("openfsm-common"); /* Библиотека с общим�
 const authMiddleware = require('openfsm-middlewares-auth-service'); // middleware для проверки токена
 const order = require('../controllers/orderController');
 
-/* 
-/v1/health
-/v1/order/create
-/v1/order/decline
-/v1/orders
-/v1/order/:id
 
- 
-*/
 router.post('/v1/order/create', authMiddleware.authenticateToken, order.create);  // Добавить товар в корзине
 router.post('/v1/order/decline', authMiddleware.authenticateToken, order.decline); // Отменить заказ
 router.get('/v1/orders', authMiddleware.authenticateToken, order.getOrders); // Получить список заказов

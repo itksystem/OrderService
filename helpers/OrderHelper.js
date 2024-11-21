@@ -4,26 +4,24 @@ const { UserDTO } = require('openfsm-user-dto');
 const common      = require('openfsm-common');  /* Библиотека с общими параметрами */
 const {OrderDto}   = require('openfsm-order-dto');
 
-exports.create = (userId, transactionId) => {
+exports.create = (userId, referenceId) => {
   return new Promise((resolve, reject) => {  
     // Первый запрос: вставка данных
     db.query(
-      `INSERT INTO orders (user_id, transaction_id) VALUES (?, ?)`,
-      [userId, transactionId],
+      `INSERT INTO orders (user_id, reference_id) VALUES (?, ?)`,
+      [userId, referenceId],
       (err) => {
         if (err) {
           return reject(null);
         }
-
         // Второй запрос: получение данных - провереряем что заказ создался и получаем RecordSet
         db.query(
-          `SELECT * FROM orders WHERE user_id = ? AND transaction_id = ?`,
-          [userId, transactionId],
+          `SELECT * FROM orders WHERE user_id = ? AND reference_id = ?`,
+          [userId, referenceId],
           (err, results) => {
             if (err) {
               return reject(null);
             }
-
             // Если запись найдена, возвращаем её
             resolve(results[0]);
           }
@@ -77,3 +75,5 @@ exports.getOrder = (orderId, userId) => {
     );
   });
 };
+
+

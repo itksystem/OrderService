@@ -26,17 +26,21 @@ const sendResponse = (res, statusCode, data) => {
 
 
 exports.create = async (req, res) => {    
+    let {referenceId} =  req.body;
+    if (!referenceId ) return sendResponse(res, 400, { message: "Invalid referenceId" });         
     let userId = await authMiddleware.getUserId(req, res);
     if (!userId ) return sendResponse(res, 400, { message: "Invalid user ID" });         
     try {
         const basketCountResponse = await warehouseClient.getBasket(commonFunction.getJwtToken(req));
-        if(!basketCountResponse || basketCountResponse.data.basket.length == 0) throw(404)
-        let order = new OrderDto(await orderHelper.create(userId, uuidv4()));
-        if (!order)  throw(common.HTTP_CODES.SERVICE_UNAVAILABLE)
-        const warehouseClientResponse = await warehouseClient.createOrder(
-              commonFunction.getJwtToken(req), 
-              { orderId : order.getOrderId()});
-        if(!warehouseClientResponse.success) throw(warehouseClientResponse.status)
+        if(!basketCountResponse || basketCountResponse.data.basket.length == 0) 
+             throw(404)
+        let order = new OrderDto(await orderHelper.create(userId, referenceId ));
+        if (!order) 
+             throw(common.HTTP_CODES.SERVICE_UNAVAILABLE)
+        const warehouseClientResponse = await warehouseClient.createOrder( commonFunction.getJwtToken(req),  { orderId : order.getOrderId()});
+        if(!warehouseClientResponse.success) 
+             throw(warehouseClientResponse.status)
+        order.setTotalAmount(warehouseClientResponse.data.totalAmount);
         sendResponse(res, 200, { status: true,  order });
     } catch (error) {
          console.error("Error create:", error);
