@@ -1,1 +1,1 @@
-docker build -t itksystem/warehouse-service .
+docker build -t itksystem/order-service .

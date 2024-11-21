@@ -1,0 +1,54 @@
+{
+  "name": "OrderService",
+  "version": "1.0.0",
+  "description": "Мискросервис складского учета и движения товаров\r # WarehouseService\r # OrderService\r # OrderService\r # OrderService",
+  "main": "app.js",
+  "dependencies": {
+    "amqplib": "^0.10.4",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "fetch": "^1.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "luxon": "^3.5.0",
+    "mysql2": "^3.11.3",
+    "node-fetch": "^2.7.0",
+    "openfsm-auth-service-client-handler": "^1.0.3",
+    "openfsm-account-dto": "^1.0.0",
+    "openfsm-account-helper": "^1.0.1",
+    "openfsm-common": "^1.0.4",
+    "openfsm-common-functions": "^1.0.1",
+    "openfsm-client-producer-amqp": "^1.0.0",
+    "openfsm-basket-item-dto": "^1.0.0",
+    "openfsm-middlewares-auth-service": "^1.0.7",
+    "openfsm-product-dto": "^1.0.0",
+    "openfsm-mail-notification-producer": "^1.0.1",
+    "openfsm-database-connection-producer": "^1.0.0",
+    "openfsm-product-media-dto": "^1.0.0",
+    "openfsm-permissions-dto": "^1.0.0",
+    "openfsm-user-helper": "^1.0.1",
+    "openfsm-transaction-helper": "^1.0.1",
+    "openfsm-user-dto": "^1.0.0",
+    "openfsm-warehouse-helper": "^1.0.0",
+    "openfsm-order-dto": "^1.0.4",
+    "openfsm-media-image-dto": "^1.0.0",
+    "openfsm-warehouse-service-client-handler": "^1.0.3",
+    "uuid": "^8.3.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/itksystem/OrderService.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/itksystem/OrderService/issues"
+  },
+  "homepage": "https://github.com/itksystem/OrderService#readme"
+}
