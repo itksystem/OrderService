@@ -31,9 +31,17 @@ exports.create = async (req, res) => {
     let userId = await authMiddleware.getUserId(req, res);
     if (!userId ) return sendResponse(res, 400, { message: "Invalid user ID" });         
     try {
-        const basketCountResponse = await warehouseClient.getBasket(commonFunction.getJwtToken(req));
-        if(!basketCountResponse || basketCountResponse.data.basket.length == 0) 
-             throw(404)
+        const basketCount =
+             await warehouseClient.getBasket(commonFunction.getJwtToken(req));
+        if(!basketCount 
+            || basketCount.data.basket.length == 0) 
+                throw(404)
+        const productAvailability =     
+            await warehouseClient.productAvailability(commonFunction.getJwtToken(req)); // проверка на доступность товара
+        if(!productAvailability || !productAvailability?.availabilityStatus)
+            throw(409)
+
+       /* Резервируем товар */
         let order = new OrderDto(await orderHelper.create(userId, referenceId ));
         if (!order) 
              throw(common.HTTP_CODES.SERVICE_UNAVAILABLE)
