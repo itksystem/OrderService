@@ -8,24 +8,12 @@ const CommonFunctionHelper = require("openfsm-common-functions")
 const commonFunction= new CommonFunctionHelper();
 const authMiddleware = require('openfsm-middlewares-auth-service'); // middleware для проверки токена
 const ClientProducerAMQP  =  require('openfsm-client-producer-amqp'); // ходим в почту через шину
+const logger = require('openfsm-logger-handler');
 const { v4: uuidv4 } = require('uuid'); 
-
-/* Коннектор для шины RabbitMQ */
-const { RABBITMQ_HOST, RABBITMQ_PORT, RABBITMQ_USER, RABBITMQ_PASSWORD, RABBITMQ_COMPLETED_ACTION_QUEUE, RABBITMQ_FAILED_ACTION_QUEUE } = process.env;
-/*
-const amqp = require('amqplib');
-
-const login = RABBITMQ_USER || 'guest';
-const pwd = RABBITMQ_PASSWORD || 'guest';
-const completed_queue = RABBITMQ_COMPLETED_ACTION_QUEUE || 'PAYMENT_COMPLETED_ACTION';
-const failed_queue = RABBITMQ_FAILED_ACTION_QUEUE || 'PAYMENT_FAILED_ACTION';
-const host = RABBITMQ_HOST || 'localhost';
-const port = RABBITMQ_PORT || '5672';
-*/
-
-
 require('dotenv').config();
 
+/* Коннектор для шины RabbitMQ */
+const { RABBITMQ_HOST, RABBITMQ_PORT, RABBITMQ_USER, RABBITMQ_PASSWORD, RABBITMQ_ORDER_COMPLETED_ACTION_QUEUE, RABBITMQ_ORDER_FAILED_ACTION_QUEUE } = process.env;
 
 const isValidUUID = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
@@ -37,6 +25,8 @@ const validateRequest = (productId, quantity, userId) => {
 };
 
 const sendResponse = (res, statusCode, data) => {
+    if(statusCode >= 400)
+         logger.error(data);
     res.status(statusCode).json(data);
 };
 
@@ -51,13 +41,13 @@ exports.create = async (req, res) => {
         const basketCount =
              await warehouseClient.getBasket(commonFunction.getJwtToken(req));
         if(!basketCount 
-            || basketCount.data.basket.length == 0) 
-                throw(404)
+            || basketCount.data.basket.length == 0)                 
+                return sendResponse(res, 404, { message: "Basket is empty" });         
 // проверили доступность товаров                
         const productAvailability =     
             await warehouseClient.productAvailability(commonFunction.getJwtToken(req)); // проверка на доступность товара
-        if(!productAvailability || !productAvailability?.data?.availabilityStatus)
-            throw(409)
+        if(!productAvailability || !productAvailability?.data?.availabilityStatus)            
+                return sendResponse(res, 409, { message: "Product count not avaibility" });         
 
 // Создаем заказ
         let order = new OrderDto(await orderHelper.create(userId, referenceId ));
@@ -67,24 +57,24 @@ exports.create = async (req, res) => {
 // привязали товары в корзине к заказу        
         const warehouseClientResponse = 
             await warehouseClient.createOrder( commonFunction.getJwtToken(req),  { orderId : order.getOrderId()});
-        if(!warehouseClientResponse.success) 
-             throw(warehouseClientResponse.status)
-
+        if(!warehouseClientResponse.success)              
+             return sendResponse(res, 422, { message: "Basket join to order error " });         
 // посчитали сумму заказа            
         order.setTotalAmount(warehouseClientResponse.data.totalAmount);
 
 // Отправили заказ на обработку службами
-        await exports.processMessage( process.env.RABBITMQ_COMPLETED_ACTION_QUEUE, 'PAYMENT_COMPLETED', order )        
+        await exports.processMessage( process.env.RABBITMQ_ORDER_COMPLETED_ACTION_QUEUE, 'ORDER_CREATED_COMPLETED', order )        
 
 // Ответили фронту об успехе        
         sendResponse(res, 200, { status: true,  order });
     } catch (error) {
-         console.error("Error create:", error);
 // Отправили ОТМЕНУ заказа на обработку службами        
-         try {
-            await exports.processMessage( process.env.RABBITMQ_FAILED_ACTION_QUEUE, 'PAYMENT_FAILED', order )         
-              } catch (error) {            
+        try {
+            await exports.processMessage( process.env.RABBITMQ_ORDER_FAILED_ACTION_QUEUE, 'ORDER_CREATED_FAILED', error )         
+           } catch (e) {       
+            logger.error(e);
         }
+          logger.error(error);
 // Ответили фронту о НЕУДАЧЕ        
          sendResponse(res, (Number(error) || 500), { code: (Number(error) || 500), message:  new CommonFunctionHelper().getDescriptionByCode((Number(error) || 500)) });
     }

@@ -22,6 +22,7 @@
     "openfsm-common": "^1.0.4",
     "openfsm-common-functions": "^1.0.1",
     "openfsm-database-connection-producer": "^1.0.0",
+    "openfsm-logger-handler": "^1.0.0",
     "openfsm-mail-notification-producer": "^1.0.1",
     "openfsm-media-image-dto": "^1.0.0",
     "openfsm-middlewares-auth-service": "^1.0.7",
@@ -34,7 +35,8 @@
     "openfsm-user-helper": "^1.0.1",
     "openfsm-warehouse-helper": "^1.0.0",
     "openfsm-warehouse-service-client-handler": "^1.0.3",
-    "uuid": "^8.3.2"
+    "uuid": "^8.3.2",
+    "winston": "^3.17.0"
   },
   "devDependencies": {},
   "scripts": {
