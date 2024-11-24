@@ -26,7 +26,7 @@
     "openfsm-mail-notification-producer": "^1.0.1",
     "openfsm-media-image-dto": "^1.0.0",
     "openfsm-middlewares-auth-service": "^1.0.7",
-    "openfsm-order-dto": "^1.0.4",
+    "openfsm-order-dto": "^1.0.5",
     "openfsm-permissions-dto": "^1.0.0",
     "openfsm-product-dto": "^1.0.0",
     "openfsm-product-media-dto": "^1.0.0",
@@ -34,7 +34,7 @@
     "openfsm-user-dto": "^1.0.0",
     "openfsm-user-helper": "^1.0.1",
     "openfsm-warehouse-helper": "^1.0.0",
-    "openfsm-warehouse-service-client-handler": "^1.0.3",
+    "openfsm-warehouse-service-client-handler": "^1.0.4",
     "uuid": "^8.3.2",
     "winston": "^3.17.0"
   },
