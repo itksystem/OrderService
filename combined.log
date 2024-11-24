@@ -2,3 +2,5 @@
 {"level":"error","message":"Cannot read property 'RABBITMQ_USER' of undefined","service":"pickapp-service","stack":"TypeError: Cannot read property 'RABBITMQ_USER' of undefined\n    at Object.exports.processMessage (C:\\Distrib\\TZ\\OrderService\\controllers\\orderController.js:133:77)\n    at exports.create (C:\\Distrib\\TZ\\OrderService\\controllers\\orderController.js:66:23)\n    at processTicksAndRejections (internal/process/task_queues.js:93:5)","timestamp":"2024-11-24T13:05:12.994Z"}
 {"code":500,"level":"error","message":"Внутренняя ошибка сервера.","service":"pickapp-service","timestamp":"2024-11-24T13:05:14.217Z"}
 {"level":"error","message":"Basket is empty","service":"pickapp-service","timestamp":"2024-11-24T13:10:52.205Z"}
+{"code":500,"level":"error","message":"Внутренняя ошибка сервера.","service":"pickapp-service","timestamp":"2024-11-24T13:56:35.776Z"}
+{"code":500,"level":"error","message":"Внутренняя ошибка сервера.","service":"pickapp-service","timestamp":"2024-11-24T13:59:21.382Z"}

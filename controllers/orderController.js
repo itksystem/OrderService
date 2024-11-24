@@ -104,8 +104,18 @@ exports.getOrders = async (req, res) => {
     }   
     try {
         let orders = await orderHelper.getOrders(userId);
+        let warehouseClient = new WarehouseServiceClientHandler();
+        const updatedOrders = await Promise.all(
+            orders.map(async (items) => {
+                let o = new OrderDto(items);
+                let orderDetails = await warehouseClient.getOrderDetails(commonFunction.getJwtToken(req), o.getOrderId());
+                items.itemsCount = orderDetails.data.items.length;
+                items.totalAmount = orderDetails.data.totalAmount;
+                return items; // Ensure the updated `items` are returned
+            })
+        );
         if (!orders) throw(422)
-        sendResponse(res, 200, { status: true, orders : orders.map(id => new OrderDto(id)),});
+        sendResponse(res, 200, { status: true, orders : updatedOrders.map(id => new OrderDto(id)),});
     } catch (error) {
         console.error("Error getOrders:", error);
         sendResponse(res, (Number(error) || 500), { code: (Number(error) || 500), message:  new CommonFunctionHelper().getDescriptionByCode((Number(error) || 500)) });
