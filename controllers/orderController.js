@@ -138,10 +138,10 @@ exports.getOrder = async (req, res) => {
 };
 
   // Основная функция для обработки сообщения из очереди
-  exports.processMessage = async (queue, process, msg) => {    
+  exports.processMessage = async (queue, process_name, msg) => {    
     try {
-         const rabbitClient = new ClientProducerAMQP( process,  process.env.RABBITMQ_USER,   process.env.RABBITMQ_PASSWORD  );
-         await  rabbitClient.sendMessage(queue, {process, msg })  
+         const rabbitClient = new ClientProducerAMQP( process_name,  process.env.RABBITMQ_USER,   process.env.RABBITMQ_PASSWORD  );
+         await  rabbitClient.sendMessage(queue, {process: process_name, msg })  
       } catch (error) {            
         throw(error)
     }

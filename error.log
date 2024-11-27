@@ -4,3 +4,4 @@
 {"level":"error","message":"Basket is empty","service":"pickapp-service","timestamp":"2024-11-24T13:10:52.205Z"}
 {"code":500,"level":"error","message":"Внутренняя ошибка сервера.","service":"pickapp-service","timestamp":"2024-11-24T13:56:35.776Z"}
 {"code":500,"level":"error","message":"Внутренняя ошибка сервера.","service":"pickapp-service","timestamp":"2024-11-24T13:59:21.382Z"}
+{"level":"error","message":"Basket is empty","service":"pickapp-service","timestamp":"2024-11-27T19:34:53.958Z"}
