@@ -141,7 +141,7 @@ exports.getOrderByReferenceId = async (req, res) => {
     let userId = await authMiddleware.getUserId(req, res);
     let referenceId = req.params.referenceId;
     if (!userId) {  console.log("Invalid user ID");  throw(400); }
-    if (!referenceId) {  console.log("Invalid order ID" ); throw(400); }
+    if (!referenceId) {  console.log("Invalid referenceId" ); throw(400); }
     try {
         let order = await orderHelper.getOrderByReferenceId(referenceId, userId);
         if (!order) return sendResponse(res, 204, { status: false, order : {} });        
