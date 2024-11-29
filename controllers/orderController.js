@@ -63,14 +63,14 @@ exports.create = async (req, res) => {
         order.setTotalAmount(warehouseClientResponse.data.totalAmount);
 
 // Отправили заказ на обработку службами
-        await exports.processMessage( process.env.RABBITMQ_ORDER_COMPLETED_ACTION_QUEUE, 'ORDER_CREATED_COMPLETED', order )        
+        await exports.processMessage( RABBITMQ_ORDER_COMPLETED_ACTION_QUEUE, order )        
 
 // Ответили фронту об успехе        
         sendResponse(res, 200, { status: true,  order });
     } catch (error) {
 // Отправили ОТМЕНУ заказа на обработку службами        
         try {
-            await exports.processMessage( process.env.RABBITMQ_ORDER_FAILED_ACTION_QUEUE, 'ORDER_CREATED_FAILED', error )         
+            await exports.processMessage( RABBITMQ_ORDER_FAILED_ACTION_QUEUE, error )         
            } catch (e) {       
             logger.error(e);
         }
@@ -137,11 +137,26 @@ exports.getOrder = async (req, res) => {
     }
 };
 
-  // Основная функция для обработки сообщения из очереди
-  exports.processMessage = async (queue, process_name, msg) => {    
+exports.getOrderByReferenceId = async (req, res) => {    
+    let userId = await authMiddleware.getUserId(req, res);
+    let referenceId = req.params.referenceId;
+    if (!userId) {  console.log("Invalid user ID");  throw(400); }
+    if (!referenceId) {  console.log("Invalid order ID" ); throw(400); }
     try {
-         const rabbitClient = new ClientProducerAMQP( process_name,  process.env.RABBITMQ_USER,   process.env.RABBITMQ_PASSWORD  );
-         await  rabbitClient.sendMessage(queue, {process: process_name, msg })  
+        let order = await orderHelper.getOrderByReferenceId(referenceId, userId);
+        if (!order) return sendResponse(res, 204, { status: false, order : {} });        
+        sendResponse(res, 200, { status: true,  order : new OrderDto(order), });
+    } catch (error) {
+        console.error("Error getOrder:", error);
+        sendResponse(res, (Number(error) || 500), { code: (Number(error) || 500), message:  new CommonFunctionHelper().getDescriptionByCode((Number(error) || 500)) });
+    }
+};
+
+  // Основная функция для обработки сообщения из очереди
+  exports.processMessage = async (queue, msg) => {    
+    try {
+         const rabbitClient = new ClientProducerAMQP();
+         await  rabbitClient.sendMessage(queue, msg )  
       } catch (error) {            
         throw(error)
     }

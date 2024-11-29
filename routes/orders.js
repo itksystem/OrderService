@@ -10,6 +10,7 @@ router.post('/v1/order/create', authMiddleware.authenticateToken, order.create);
 router.post('/v1/order/decline', authMiddleware.authenticateToken, order.decline); // Отменить заказ
 router.get('/v1/orders', authMiddleware.authenticateToken, order.getOrders); // Получить список заказов
 router.get('/v1/order/:id', authMiddleware.authenticateToken, order.getOrder); // Получить заказ
+router.get('/v1/order-by-reference/:referenceId', authMiddleware.authenticateToken, order.getOrderByReferenceId); // Получить заказ по referenceId
 
 
 

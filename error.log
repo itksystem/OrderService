@@ -5,3 +5,9 @@
 {"code":500,"level":"error","message":"Внутренняя ошибка сервера.","service":"pickapp-service","timestamp":"2024-11-24T13:56:35.776Z"}
 {"code":500,"level":"error","message":"Внутренняя ошибка сервера.","service":"pickapp-service","timestamp":"2024-11-24T13:59:21.382Z"}
 {"level":"error","message":"Basket is empty","service":"pickapp-service","timestamp":"2024-11-27T19:34:53.958Z"}
+{"level":"error","message":null,"service":"pickapp-service","timestamp":"2024-11-27T23:49:39.145Z"}
+{"code":500,"level":"error","message":"Внутренняя ошибка сервера.","service":"pickapp-service","timestamp":"2024-11-27T23:49:39.218Z"}
+{"level":"error","message":"login is not defined","service":"pickapp-service","stack":"ReferenceError: login is not defined\n    at new ClientProducerAMQP (C:\\Distrib\\TZ\\OrderService\\node_modules\\openfsm-client-producer-amqp\\ClientProducerAMQP.js:11:18)\n    at Object.exports.processMessage (C:\\Distrib\\TZ\\OrderService\\controllers\\orderController.js:143:31)\n    at exports.create (C:\\Distrib\\TZ\\OrderService\\controllers\\orderController.js:73:27)\n    at processTicksAndRejections (internal/process/task_queues.js:93:5)","timestamp":"2024-11-27T23:57:16.490Z"}
+{"level":"error","message":null,"service":"pickapp-service","timestamp":"2024-11-27T23:57:18.696Z"}
+{"code":500,"level":"error","message":"Внутренняя ошибка сервера.","service":"pickapp-service","timestamp":"2024-11-27T23:57:18.700Z"}
+{"level":"error","message":"Basket is empty","service":"pickapp-service","timestamp":"2024-11-28T00:07:03.777Z"}

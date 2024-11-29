@@ -77,3 +77,17 @@ exports.getOrder = (orderId, userId) => {
 };
 
 
+exports.getOrderByReferenceId = (referenceId, userId) => {
+  return new Promise((resolve, reject) => {      
+    db.query(`SELECT order_id, status, created_at, updated_at from orders where 1=1 and reference_id=? and user_id=?`, [referenceId, userId],
+      (err, results) => {
+        if (err) {
+          return reject(err);
+        } else
+        resolve(results[0]);                
+      }
+    );
+  });
+};
+
+
