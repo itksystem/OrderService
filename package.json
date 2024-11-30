@@ -4,6 +4,7 @@
   "description": "Мискросервис складского учета и движения товаров\r # WarehouseService\r # OrderService\r # OrderService\r # OrderService",
   "main": "app.js",
   "dependencies": {
+    "amqp": "^0.2.7",
     "amqplib": "^0.10.4",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",

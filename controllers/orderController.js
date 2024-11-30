@@ -7,13 +7,10 @@ const warehouseClient   = new WarehouseServiceClientHandler();
 const CommonFunctionHelper = require("openfsm-common-functions")
 const commonFunction= new CommonFunctionHelper();
 const authMiddleware = require('openfsm-middlewares-auth-service'); // middleware для проверки токена
-const ClientProducerAMQP  =  require('openfsm-client-producer-amqp'); // ходим в почту через шину
 const logger = require('openfsm-logger-handler');
 const { v4: uuidv4 } = require('uuid'); 
 require('dotenv').config();
 
-/* Коннектор для шины RabbitMQ */
-const { RABBITMQ_HOST, RABBITMQ_PORT, RABBITMQ_USER, RABBITMQ_PASSWORD, RABBITMQ_ORDER_COMPLETED_ACTION_QUEUE, RABBITMQ_ORDER_FAILED_ACTION_QUEUE } = process.env;
 
 const isValidUUID = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
@@ -32,6 +29,7 @@ const sendResponse = (res, statusCode, data) => {
 
 
 exports.create = async (req, res) => {    
+    let order;
     let {referenceId} =  req.body;
     if (!referenceId ) return sendResponse(res, 400, { message: "Invalid referenceId" });         
     let userId = await authMiddleware.getUserId(req, res);
@@ -50,7 +48,7 @@ exports.create = async (req, res) => {
                 return sendResponse(res, 409, { message: "Product count not avaibility" });         
 
 // Создаем заказ
-        let order = new OrderDto(await orderHelper.create(userId, referenceId ));
+        order = new OrderDto(await orderHelper.create(userId, referenceId ));
         if (!order) 
              throw(common.HTTP_CODES.SERVICE_UNAVAILABLE)
 
@@ -61,22 +59,13 @@ exports.create = async (req, res) => {
              return sendResponse(res, 422, { message: "Basket join to order error " });         
 // посчитали сумму заказа            
         order.setTotalAmount(warehouseClientResponse.data.totalAmount);
-
-// Отправили заказ на обработку службами
-        await exports.processMessage( RABBITMQ_ORDER_COMPLETED_ACTION_QUEUE, order )        
-
 // Ответили фронту об успехе        
         sendResponse(res, 200, { status: true,  order });
-    } catch (error) {
-// Отправили ОТМЕНУ заказа на обработку службами        
-        try {
-            await exports.processMessage( RABBITMQ_ORDER_FAILED_ACTION_QUEUE, error )         
-           } catch (e) {       
-            logger.error(e);
-        }
-          logger.error(error);
-// Ответили фронту о НЕУДАЧЕ        
-         sendResponse(res, (Number(error) || 500), { code: (Number(error) || 500), message:  new CommonFunctionHelper().getDescriptionByCode((Number(error) || 500)) });
+    } catch (error) {               
+          orderHelper.orderStatusMessage( { status: false,  order, message : `Ошибка при создании заказа ${error}` });
+// Ответили фронту о НЕУДАЧЕ       
+         logger.error(error);
+         sendResponse(res, (Number(error) || 500), { code: (Number(error) || 500), message:  new CommonFunctionHelper().getDescriptionByCode((Number(error) || 500)) });         
     }
 };
 
@@ -152,13 +141,4 @@ exports.getOrderByReferenceId = async (req, res) => {
     }
 };
 
-  // Основная функция для обработки сообщения из очереди
-  exports.processMessage = async (queue, msg) => {    
-    try {
-         const rabbitClient = new ClientProducerAMQP();
-         await  rabbitClient.sendMessage(queue, msg )  
-      } catch (error) {            
-        throw(error)
-    }
-  }
   
