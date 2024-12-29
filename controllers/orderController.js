@@ -98,7 +98,9 @@ exports.getOrders = async (req, res) => {
             orders.map(async (items) => {
                 let o = new OrderDto(items);
                 let orderDetails = await warehouseClient.getOrderDetails(commonFunction.getJwtToken(req), o.getOrderId());
-                items.itemsCount = orderDetails.data.items.length;
+                let totalQuantity = orderDetails?.data?.items?.reduce((quantity, item) => quantity + item.quantity, 0);
+//                items.itemsCount = orderDetails.data.items.length;
+                items.itemsCount = totalQuantity;
                 items.totalAmount = orderDetails.data.totalAmount;
                 return items; // Ensure the updated `items` are returned
             })
