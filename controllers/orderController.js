@@ -9,8 +9,7 @@ const commonFunction= new CommonFunctionHelper();
 const authMiddleware = require('openfsm-middlewares-auth-service'); // middleware для проверки токена
 const logger = require('openfsm-logger-handler');
 const { v4: uuidv4 } = require('uuid'); 
-require('dotenv').config();
-
+require('dotenv').config({ path: '.env-order-service' });
 
 const isValidUUID = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 

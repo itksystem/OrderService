@@ -3,7 +3,7 @@ const { UserPermissionsDTO, RoleDTO, PermissionDTO } = require('openfsm-permissi
 const { UserDTO } = require('openfsm-user-dto');
 const common      = require('openfsm-common');  /* Библиотека с общими параметрами */
 const {OrderDto}   = require('openfsm-order-dto');
-require('dotenv').config();
+require('dotenv').config({ path: '.env-order-service' });
 const ClientProducerAMQP  =  require('openfsm-client-producer-amqp'); // ходим в почту через шину
 const amqp = require('amqplib');
 
