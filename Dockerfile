@@ -1,5 +1,7 @@
 # Указываем базовый образ Node.js
 FROM node:18-alpine
+RUN apk add --no-cache bash
+RUN apk add --no-cache mc
 
 # Устанавливаем рабочую директорию в контейнере
 WORKDIR /usr/src/app

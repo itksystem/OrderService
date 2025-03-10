@@ -7,6 +7,7 @@ const warehouseClient   = new WarehouseServiceClientHandler();
 const CommonFunctionHelper = require("openfsm-common-functions")
 const commonFunction= new CommonFunctionHelper();
 const authMiddleware = require('openfsm-middlewares-auth-service'); // middleware для проверки токена
+
 const logger = require('openfsm-logger-handler');
 const { v4: uuidv4 } = require('uuid'); 
 require('dotenv').config({ path: '.env-order-service' });
@@ -31,8 +32,12 @@ exports.create = async (req, res) => {
     let order;
     let {referenceId} =  req.body;
     if (!referenceId ) return sendResponse(res, 400, { message: "Invalid referenceId" });         
+    console.log(`Order.create referenceId => ${referenceId}`);
+
     let userId = await authMiddleware.getUserId(req, res);
     if (!userId ) return sendResponse(res, 400, { message: "Invalid user ID" });         
+     console.log(`Order.create userId => ${userId}`);
+
     try {
 // проверили количество в корзине         
         const basketCount =
@@ -40,28 +45,35 @@ exports.create = async (req, res) => {
         if(!basketCount 
             || basketCount.data.basket.length == 0)                 
                 return sendResponse(res, 404, { message: "Basket is empty" });         
+        console.log(`Order.create basketCount => `, basketCount);        
+
 // проверили доступность товаров                
         const productAvailability =     
             await warehouseClient.productAvailability(commonFunction.getJwtToken(req)); // проверка на доступность товара
         if(!productAvailability || !productAvailability?.data?.availabilityStatus)            
                 return sendResponse(res, 409, { message: "Product count not avaibility" });         
+        console.log(`Order.create productAvailability => `, productAvailability);        
 
 // Создаем заказ
-        order = new OrderDto(await orderHelper.create(userId, referenceId ));
+        order = new OrderDto(await orderHelper.create(userId, referenceId));
         if (!order) 
              throw(common.HTTP_CODES.SERVICE_UNAVAILABLE)
+        console.log(`Order.create order => `, order);        
 
 // привязали товары в корзине к заказу        
         const warehouseClientResponse = 
             await warehouseClient.createOrder( commonFunction.getJwtToken(req),  { orderId : order.getOrderId()});
+            console.log(`Order.create warehouseClientResponse => `, warehouseClientResponse);        
         if(!warehouseClientResponse.success)              
              return sendResponse(res, 422, { message: "Basket join to order error " });         
+        
+
 // посчитали сумму заказа            
         order.setTotalAmount(warehouseClientResponse.data.totalAmount);
 // Ответили фронту об успехе        
         sendResponse(res, 200, { status: true,  order });
-    } catch (error) {               
-          orderHelper.orderStatusMessage( { status: false,  order, message : `Ошибка при создании заказа ${error}` });
+    } catch (error) {                         
+          orderHelper.decline(orderId, userId);  // откатили транзакцию.
 // Ответили фронту о НЕУДАЧЕ       
          logger.error(error);
          sendResponse(res, (Number(error) || 500), { code: (Number(error) || 500), message:  new CommonFunctionHelper().getDescriptionByCode((Number(error) || 500)) });         
@@ -86,31 +98,58 @@ exports.decline = async (req, res) => {
 };
 
 exports.getOrders = async (req, res) => {    
-    let userId = await authMiddleware.getUserId(req, res);
-    if (!userId) { 
-        console.log("Invalid user ID");  throw(400);
-    }   
     try {
+        // Получаем userId
+        let userId = await authMiddleware.getUserId(req, res);
+        if (!userId) { 
+            console.log("Invalid user ID");
+            return sendResponse(res, 400, { status: false, message: "Invalid user ID" });
+        }   
+
+        // Получаем заказы
         let orders = await orderHelper.getOrders(userId);
+           // Обновляем данные заказов
         let warehouseClient = new WarehouseServiceClientHandler();
         const updatedOrders = await Promise.all(
             orders.map(async (items) => {
-                let o = new OrderDto(items);
-                let orderDetails = await warehouseClient.getOrderDetails(commonFunction.getJwtToken(req), o.getOrderId());
-                let totalQuantity = orderDetails?.data?.items?.reduce((quantity, item) => quantity + item.quantity, 0);
-//                items.itemsCount = orderDetails.data.items.length;
-                items.itemsCount = totalQuantity;
-                items.totalAmount = orderDetails.data.totalAmount;
-                return items; // Ensure the updated `items` are returned
+                try {
+                    let o = new OrderDto(items);
+                    console.log(`o`,o)
+                    try {
+                        let orderDetails = await warehouseClient.getOrderDetails(commonFunction.getJwtToken(req), o.getOrderId());
+                        console.log(`orderDetails`,orderDetails)    
+                        let totalQuantity = orderDetails?.data?.items?.reduce((quantity, item) => quantity + item.quantity, 0) || 0;
+                        console.log(`totalQuantity`,totalQuantity)    
+                        items.itemsCount = totalQuantity || 0;
+                        items.totalAmount = orderDetails?.data?.totalAmount || 0;
+                        console.log(`items`,items)        
+                    } catch (error) {
+                        console.log(`orderDetails`,error)    
+                    }                    
+                    return items;
+                } catch (error) {
+                    console.log(`Error fetching details for order ${items.orderId}:`, error);
+                    return items; // Возвращаем заказ без обновленных данных
+                }
             })
         );
-        if (!orders) throw(422)
-        sendResponse(res, 200, { status: true, orders : updatedOrders.map(id => new OrderDto(id)),});
+        // Убрали все заказы с 0 количеством товаров (сбойные)
+        const filteredUsers = updatedOrders.filter(order => order.totalAmount !== 0);
+        // Отправляем ответ
+        sendResponse(res, 200, { 
+            status: true, 
+            orders: filteredUsers.map(order => new OrderDto(order)) 
+        });
     } catch (error) {
-        console.error("Error getOrders:", error);
-        sendResponse(res, (Number(error) || 500), { code: (Number(error) || 500), message:  new CommonFunctionHelper().getDescriptionByCode((Number(error) || 500)) });
+        console.error("Error in getOrders:", error);
+        const statusCode = Number.isInteger(error) ? error : 500;
+        sendResponse(res, statusCode, { 
+            code: statusCode, 
+            message: new CommonFunctionHelper().getDescriptionByCode(statusCode) 
+        });
     }
 };
+
 
 exports.getOrder = async (req, res) => {    
     let userId = await authMiddleware.getUserId(req, res);

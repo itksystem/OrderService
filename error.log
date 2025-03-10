@@ -13,3 +13,7 @@
 {"level":"error","message":"Basket is empty","service":"pickapp-service","timestamp":"2024-11-28T00:07:03.777Z"}
 {"code":500,"level":"error","message":"Внутренняя ошибка сервера.","service":"pickapp-service","timestamp":"2024-11-29T23:19:45.834Z"}
 {"level":"error","message":"Basket is empty","service":"pickapp-service","timestamp":"2025-01-06T20:30:23.497Z"}
+{"code":500,"level":"error","message":"Внутренняя ошибка сервера.","service":"pickapp-service","timestamp":"2025-03-07T20:09:35.100Z"}
+{"code":500,"level":"error","message":"Внутренняя ошибка сервера.","service":"pickapp-service","timestamp":"2025-03-07T20:29:38.405Z"}
+{"level":"error","message":"No orders found","service":"pickapp-service","status":false,"timestamp":"2025-03-07T20:31:13.177Z"}
+{"level":"error","message":"No orders found","service":"pickapp-service","status":false,"timestamp":"2025-03-07T20:31:37.299Z"}

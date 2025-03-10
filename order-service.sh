@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Название образа Docker
-PORT=3006
+PORT=3003
 SERVICE="order-service"
 IMAGE_NAME="docker.io/itksystem/$SERVICE:latest"
 
