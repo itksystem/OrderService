@@ -42,24 +42,12 @@ exports.create = (userId, referenceId) => {
     db.query(
       SQL.ORDER.CREATE,      
       [userId, referenceId],
-      (err) => {
+      (err, results) => {
         if (err) {
           logger.error(err)
-          return reject(null);
+          return reject(err);
         }        
-        // Второй запрос: проверка, что заказ создался, и получение RecordSet
-        db.query(
-          SQL.ORDER.FIND_BY_USER_AND_REFERENCE,
-          [userId, referenceId],
-          (err, results) => {
-            if (err) {
-              logger.error(err)
-              return reject(null);
-            }
-            // Если запись найдена, возвращаем её
-            resolve(results?.rows[0] ?? null);
-          }
-        );
+        resolve(results?.rows[0] ?? null);
       }
     );
   });
@@ -138,6 +126,25 @@ exports.getOrderByReferenceId = (referenceId, userId) => {
   });
 };
 
+
+// подписка
+exports.subscription = (userId, orderId, type, status ) => {
+  let sql = (status == 'ENABLED' ? SQL.ORDER.SUBSCRIPTION_ENABLED  : SQL.ORDER.SUBSCRIPTION_DISABLED ) 
+  return new Promise((resolve, reject) => {
+    db.query(
+      sql,  [userId, orderId, type],
+      (err, results) => {
+        if (err) {
+          return reject(err);
+        } else {
+          resolve(results?.rows[0] ?? null);
+        }
+      }
+    );
+  });
+};
+
+
 // Установка статуса заказа
 exports.orderStatusMessage = async (statusMessage) => {
   try {
@@ -149,6 +156,9 @@ exports.orderStatusMessage = async (statusMessage) => {
   }
   return;
 };
+
+
+
 
 // Отмена бронирования товара на складе
 async function WarehouseOrderDeclineMessage(statusMessage) {
@@ -215,6 +225,10 @@ async function setOrderStatus(status, orderId) {
     );
   });
 }
+
+
+
+
 
 // Обработка сообщения о статусе заказа
 async function startOrderStatusProducer(msg) {

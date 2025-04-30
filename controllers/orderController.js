@@ -11,6 +11,12 @@ const authMiddleware = require('openfsm-middlewares-auth-service'); // middlewar
 const logger = require('openfsm-logger-handler');
 const { v4: uuidv4 } = require('uuid'); 
 require('dotenv').config({ path: '.env-order-service' });
+const SUBSCRIBE_TYPE = {
+    BEGIN : "BEGIN",
+    EXTENDED :   "EXTENDED",
+    ADVANCED  : "ADVANCED",
+    PROFESSIONAL : "PROFESSIONAL"
+}
 
 const isValidUUID = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
@@ -181,4 +187,30 @@ exports.getOrderByReferenceId = async (req, res) => {
     }
 };
 
-  
+
+/* {
+"referenceId" : "",
+"status" : true,
+"type" : "BEGIN ||  EXTENDED || ADVANCED || PROFESSIONAL"
+}
+*/
+exports.subscription = async (req, res) => {    
+    try {
+        let userId = await authMiddleware.getUserId(req, res);
+        if (!userId) throw(401);
+        
+        let {referenceId, status, type} = req.body;    
+        if (!referenceId) throw(400); 
+                
+        let order = await orderHelper.create(userId, referenceId); // создать заказ
+        if(!order?.order_id) throw(422);
+
+        let subscription = await orderHelper.subscr5iption(userId, order.order_id, type, status); // создать заказ
+        if(!subscription) throw(422);
+
+        sendResponse(res, 200, { status: true,  subscription });
+    } catch (error) {
+        console.error("Error subscription:", error);
+        sendResponse(res, (Number(error) || 500), { code: (Number(error) || 500), message:  new CommonFunctionHelper().getDescriptionByCode((Number(error) || 500)) });
+    }
+};
