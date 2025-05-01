@@ -188,27 +188,97 @@ exports.getOrderByReferenceId = async (req, res) => {
 };
 
 
-/* {
-"referenceId" : "",
-"status" : true,
-"type" : "BEGIN ||  EXTENDED || ADVANCED || PROFESSIONAL"
+/*
+{
+"referenceId" : "ea20e4f6-30d6-4ce1-a494-be371a5be672"	,
+"status" : "ENABLED",
+"type" : "PROFESSIONAL"	
 }
 */
+
+
+ async function createSubscription(userId, status, level, referenceId) {    
+   try {
+     if(!userId || !level || !referenceId) 
+        throw(422)
+        let _subscription = await orderHelper.getSubscriptionStatus(userId); // получить состояние подписки       
+        if(_subscription) throw(409)
+        let order = await orderHelper.create(userId, referenceId); // создать подписку
+        if(!order?.order_id) 
+            throw(422);
+        let subscription = await orderHelper.subscription(userId, status, order?.order_id, level); // создать заказ
+        return subscription;      
+     } catch (error) {
+        console.log(`createSubscription `, error)
+    throw(error)
+  }
+}    
+
+async function deleteSubscription(userId, status) {    
+  try {
+       let subscription = await orderHelper.subscription(userId, status); // удалить подписку
+        if(!subscription) 
+            throw(422);        
+     } catch (error) {
+        console.log(`createSubscription `, error)
+     throw(error)    
+  }
+}    
+
 exports.subscription = async (req, res) => {    
     try {
         let userId = await authMiddleware.getUserId(req, res);
         if (!userId) throw(401);
         
-        let {referenceId, status, type} = req.body;    
-        if (!referenceId) throw(400); 
-                
-        let order = await orderHelper.create(userId, referenceId); // создать заказ
-        if(!order?.order_id) throw(422);
+        let {subscriptionId, referenceId, status, level} = req.body;    
+        if (!referenceId) throw(400);                 
+        
+        switch(status){
+          case orderHelper.SUBSCRIPTION_ACTION.CREATE : { // создать  подписку
+            let subscription = await createSubscription( userId, status, level, referenceId);
+            if(!subscription) throw(409)
+            sendResponse(res, 200, { status: true,  subscription });
+            return;
+          }
 
-        let subscription = await orderHelper.subscr5iption(userId, order.order_id, type, status); // создать заказ
-        if(!subscription) throw(422);
+          case orderHelper.SUBSCRIPTION_ACTION.DELETE : { // удалить подписку
+            let subscription = await deleteSubscription(subscriptionId, userId, status );
+            if(!subscription) throw(409)
+            sendResponse(res, 200, { status: true,  subscription });
+            return;
+          }
+          default: 
+           throw(422)
+        }
+    } catch (error) {
+        console.error("Error subscription:", error);
+        sendResponse(res, (Number(error) || 500), { code: (Number(error) || 500), message:  new CommonFunctionHelper().getDescriptionByCode((Number(error) || 500)) });
+    }
+};
 
+
+
+exports.getSubscriptionStatus = async (req, res) => {    
+    try {
+        let userId = await authMiddleware.getUserId(req, res);
+        if (!userId) throw(401);
+
+        let subscription = await orderHelper.getSubscriptionStatus(userId); // получить состояние подписки        
         sendResponse(res, 200, { status: true,  subscription });
+    } catch (error) {
+        console.error("Error subscription:", error);
+        sendResponse(res, (Number(error) || 500), { code: (Number(error) || 500), message:  new CommonFunctionHelper().getDescriptionByCode((Number(error) || 500)) });
+    }
+};
+
+
+exports.getSubscriptions = async (req, res) => {    
+    try {
+        let userId = await authMiddleware.getUserId(req, res);
+        if (!userId) throw(401);
+
+        let subscriptions = await orderHelper.getSubscriptions(userId); // получить состояние подписки        
+        sendResponse(res, 200, { status: true,  subscriptions });
     } catch (error) {
         console.error("Error subscription:", error);
         sendResponse(res, (Number(error) || 500), { code: (Number(error) || 500), message:  new CommonFunctionHelper().getDescriptionByCode((Number(error) || 500)) });

@@ -12,6 +12,12 @@ const MESSAGES        = require('common-orders-service').MESSAGES;
 const logger          = require('openfsm-logger-handler');
 const LANGUAGE = 'RU';
 
+exports.SUBSCRIPTION_ACTION = {  
+  CREATE  : 'CREATE',  // создать подписку
+  DELETE  : 'DELETE', // удалить подписку  
+  ACTIVATED  : 'ACTIVATED', // включить подписку через шину 
+  DEACTIVATED  : 'DEACTIVATED', // отключить подписку через шину
+}
 
 
 /* Коннектор для шины RabbitMQ */
@@ -24,6 +30,7 @@ const {
   RABBITMQ_WAREHOUSE_DECLINE_QUEUE,
   RABBITMQ_DELIVERY_DECLINE_QUEUE,
   RABBITMQ_ORDER_DECLINE_QUEUE,
+  RABBITMQ_SUBSCRIPTION_ACTION_QUEUE
 } = process.env;
 
 const login = RABBITMQ_USER || 'guest';
@@ -32,6 +39,7 @@ const ORDER_STATUS_QUEUE = RABBITMQ_ORDER_STATUS_QUEUE || 'ORDER_STATUS';
 const ORDER_DECLINE_QUEUE = RABBITMQ_ORDER_DECLINE_QUEUE || 'ORDER_DECLINE';
 const WAREHOUSE_DECLINE_QUEUE = RABBITMQ_WAREHOUSE_DECLINE_QUEUE || 'WAREHOUSE_DECLINE';
 const DELIVERY_DECLINE_QUEUE = RABBITMQ_DELIVERY_DECLINE_QUEUE || 'DELIVERY_DECLINE';
+const SUBSCRIPTION_ACTION_QUEUE = RABBITMQ_SUBSCRIPTION_ACTION_QUEUE || 'SUBSCRIPTION_ACTION';
 const host = RABBITMQ_HOST || 'rabbitmq-service';
 const port = RABBITMQ_PORT || '5672';
 
@@ -127,17 +135,85 @@ exports.getOrderByReferenceId = (referenceId, userId) => {
 };
 
 
-// подписка
-exports.subscription = (userId, orderId, type, status ) => {
-  let sql = (status == 'ENABLED' ? SQL.ORDER.SUBSCRIPTION_ENABLED  : SQL.ORDER.SUBSCRIPTION_DISABLED ) 
+// подписка - включить / выключить
+exports.subscription = (userId, status, orderId, level) => {  
+  switch(status) {    
+    case exports.SUBSCRIPTION_ACTION.CREATE :  {       
+      return new Promise((resolve, reject) => {
+        db.query(
+          SQL.ORDER.SUBSCRIPTION_CREATE,  [userId, orderId, level],
+          (err, results) => {
+            if (err) {
+              return reject(err);
+            } else {
+              resolve(results?.rows[0] ?? null);
+            }
+          }
+        );
+      });      
+    }
+    case exports.SUBSCRIPTION_ACTION.DELETE :  {       
+      return new Promise((resolve, reject) => {
+        db.query(
+          SQL.ORDER.SUBSCRIPTION_DELETE,  [userId],
+          (err, results) => {
+            if (err) {
+              return reject(err);
+            } else {
+              resolve(results?.rows[0] ?? null);
+            }
+          }
+        );
+      });      
+    }
+    default : 
+      return null;
+  } 
+};
+
+// подписка - включить / выключить через шину
+exports.updateSubscription = (msg) => {
   return new Promise((resolve, reject) => {
+    const {userId, orderId, level, status} = msg;
     db.query(
-      sql,  [userId, orderId, type],
+      SQL.ORDER.SUBSCRIPTION_UPDATE,  [userId, orderId, level],
       (err, results) => {
         if (err) {
           return reject(err);
         } else {
           resolve(results?.rows[0] ?? null);
+        }
+      }
+    );
+  });
+};
+
+// статус подписки
+exports.getSubscriptionStatus = (userId ) => {  
+  return new Promise((resolve, reject) => {
+    db.query(
+      SQL.ORDER.SUBSCRIPTION_STATUS,  [userId],
+      (err, results) => {
+        if (err) {
+          return reject(err);
+        } else {
+          resolve(results?.rows[0] ?? null);
+        }
+      }
+    );
+  });
+};
+
+// статус подписки
+exports.getSubscriptions = (userId ) => {  
+  return new Promise((resolve, reject) => {
+    db.query(
+      SQL.ORDER.SUBSCRIPTIONS,  [],
+      (err, results) => {
+        if (err) {
+          return reject(err);
+        } else {
+          resolve(results?.rows ?? null);
         }
       }
     );
@@ -158,128 +234,62 @@ exports.orderStatusMessage = async (statusMessage) => {
 };
 
 
-
-
-// Отмена бронирования товара на складе
-async function WarehouseOrderDeclineMessage(statusMessage) {
+// ****************************************  Подключение к RabbitMQ и прослушивание очереди  *************************************************
+async function startConsumer(queue, handler) {
   try {
-    let rabbitClient = new ClientProducerAMQP();
-    await rabbitClient.sendMessage(WAREHOUSE_DECLINE_QUEUE, statusMessage);
-  } catch (error) {
-    console.log(`Ошибка ${error} при отправке статуса заказа ...`);
-  }
-  return;
+     const connection = await amqp.connect(`amqp://${login}:${pwd}@${host}:${port}`);
+     const channel = await connection.createChannel();
+     await channel.assertQueue(queue, { durable: true });
+     console.log(`Listening on queue ${queue}...`);
+     channel.consume(queue, async (msg) => {
+        if (msg) {
+           try {
+              const data = JSON.parse(msg.content.toString());
+              await handler(data);
+              channel.ack(msg);
+           } catch (error) {
+               console.error(`Error processing message: ${error}`);
+               channel.ack(msg);
+            }
+          }
+        });
+      } catch (error) {
+          
+          console.error(`Error connecting to RabbitMQ: ${error}`);
+   }
 }
 
-// Отмена бронирования доставки
-async function DeliveryOrderReservationDeclineMessage(statusMessage) {
+/*
+  SUBSCRIPTION_ACTION_QUEUE - очередь управления статусом подписки
+  userId - идентификатор пользователя
+  action - ACTIVATED || DEACTIVATED
+*/
+startConsumer(SUBSCRIPTION_ACTION_QUEUE,
+  async (msg) => {
   try {
-    let rabbitClient = new ClientProducerAMQP();
-    await rabbitClient.sendMessage(DELIVERY_DECLINE_QUEUE, statusMessage);
-  } catch (error) {
-    console.log(`Ошибка ${error} при отправке статуса заказа ...`);
-  }
-  return;
-}
+    if(!msg?.userId || !msg?.action ) 
+         throw(`msg?.userId=${msg?.userId} msg?.action=${msg?.action}`)
+    if(msg?.action !== exports.SUBSCRIPTION_ACTION.ACTIVATED && msg?.action !== exports.SUBSCRIPTION_ACTION.DEACTIVATED)        
+         throw(`msg?.action !== exports.SUBSCRIPTION_ACTION.ACTIVATED && msg?.action !== exports.SUBSCRIPTION_ACTION.ACTIVATED`)
 
-// Выполнение операции возврата средств
-async function ReturnTransactionExecuteMessage(statusMessage) {
-  console.log('ReturnTransactionExecuteMessage пока не реализован!!!');
-  return;
-}
+          new Promise((resolve, reject) => {
+          db.query(
+            (msg?.action == exports.SUBSCRIPTION_ACTION.ACTIVATED)
+            ? SQL.ORDER.SUBSCRIPTION_ACTIVATED
+            : SQL.ORDER.SUBSCRIPTION_DEACTIVATED,  [msg?.userId],
+            (err, results) => {
+              if (err) {
+                return reject(err);
+              } else {
+                resolve(results?.rows[0] ?? null);
+              }
+            }
+          );
+        });   
 
-// Подключение к RabbitMQ и прослушивание очереди
-async function startConsumer(queue) {
-  try {
-    const connection = await amqp.connect(`amqp://${login}:${pwd}@${host}:${port}`);
-    const channel = await connection.createChannel();
-    await channel.assertQueue(queue, { durable: true });
-    console.log(`Ожидание сообщений в очереди ${queue}...`);
-
-    channel.consume(queue, async (msg) => {
-      if (msg !== null) {
-        console.log(JSON.parse(msg.content.toString()));
-        await startOrderStatusProducer(JSON.parse(msg.content.toString()));
-        channel.ack(msg); // Подтверждение обработки сообщения
-      }
-    });
-  } catch (error) {
-    console.error(`Ошибка подключения к RabbitMQ: ${error}`);
-  }
-}
-
-// Установка статуса заказа
-async function setOrderStatus(status, orderId) {
-  console.log(`Установка статуса ${status} заказу ${orderId}`);
-  return new Promise((resolve, reject) => {
-    db.query(
-      SQL.ORDER.UPDATE_STATUS_BY_ORDER,
-      [status, orderId],
-      (err) => {
-        if (err) {
-          return reject(err);
-        } else {
-          resolve(true);
-        }
-      }
-    );
-  });
-}
-
-
-
-
-
-// Обработка сообщения о статусе заказа
-async function startOrderStatusProducer(msg) {
-  try {
-    console.log(`Поступило сообщение ${JSON.stringify(msg)}`);
-    if (!msg) return;
-    await setOrderStatus(msg.processStatus, msg.order.orderId); // Установить статус
-  } catch (error) {
-    console.error(`Ошибка: ${error}`);
-  }
-}
-
-// Подключение к RabbitMQ и прослушивание очереди ORDER_ROLLBACK_QUEUE
-async function startRollbackConsumer(queue) {
-  try {
-    const connection = await amqp.connect(`amqp://${login}:${pwd}@${host}:${port}`);
-    const channel = await connection.createChannel();
-    await channel.assertQueue(queue, { durable: true });
-    console.log(`Ожидание сообщений в очереди ${queue}...`);
-
-    channel.consume(queue, async (msg) => {
-      if (msg !== null) {
-        const _msg = JSON.parse(msg.content.toString());
-        console.log(_msg);
-        _msg.processStatus = 'DECLINE';
-        await startOrderStatusProducer(_msg); // Установить статус ОТКЛОНЕН
-        await orderRollbackProducer(_msg); // Произвести откат операций
-        channel.ack(msg); // Подтверждение обработки сообщения
-      }
-    });
-  } catch (error) {
-    console.error(`Ошибка подключения к RabbitMQ: ${error}`);
-  }
-}
-
-// Продьюсер отката операций
-async function orderRollbackProducer(msg) {
-  try {
-    console.log(`Поступило сообщение ${JSON.stringify(msg)}`);
-    if (!msg) return;
-    if (msg?.status === false) {
-      // Откат транзакции
-      await WarehouseOrderDeclineMessage(msg);
-      await DeliveryOrderReservationDeclineMessage(msg);
-      await ReturnTransactionExecuteMessage(msg);
+       } catch (error) {
+         console.log(error);
     }
-  } catch (error) {
-    console.error(`Ошибка: ${error}`);
-  }
-}
 
-// Запуск консьюмеров
-startConsumer(ORDER_STATUS_QUEUE); // Запуск консьюмера ORDER_STATUS_QUEUE
-startRollbackConsumer(ORDER_DECLINE_QUEUE); // Запуск консьюмера ORDER_DECLINE_QUEUE
+  });
+

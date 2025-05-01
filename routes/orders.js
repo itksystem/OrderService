@@ -4,6 +4,8 @@ const authMiddleware = require('openfsm-middlewares-auth-service'); // middlewar
 const order = require('../controllers/orderController');
 
 router.post('/v1/subscription', authMiddleware.authenticateToken, order.subscription); //подписка
+router.get('/v1/subscription', authMiddleware.authenticateToken, order.getSubscriptionStatus); //подписка
+router.get('/v1/subscriptions', authMiddleware.authenticateToken, order.getSubscriptions); //список типов подписки
 
 router.post('/v1/create', authMiddleware.authenticateToken, order.create);  // Добавить товар в корзине
 router.post('/v1/decline', authMiddleware.authenticateToken, order.decline); // Отменить заказ
@@ -16,7 +18,7 @@ router.post('/v1/order/create', authMiddleware.authenticateToken, order.create);
 router.post('/v1/order/decline', authMiddleware.authenticateToken, order.decline); // Отменить заказ
 router.get('/v1/order/:id', authMiddleware.authenticateToken, order.getOrder); // Получить заказ
 
-router.get( '/v1/:id', authMiddleware.authenticateToken, order.getOrder); // Получить заказ
+
 
 
 module.exports = router;
