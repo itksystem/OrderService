@@ -10,6 +10,7 @@ const amqp = require('amqplib');
 const SQL        = require('common-orders-service').SQL;
 const MESSAGES        = require('common-orders-service').MESSAGES;
 const logger          = require('openfsm-logger-handler');
+const { query } = require('winston');
 const LANGUAGE = 'RU';
 
 exports.SUBSCRIPTION_ACTION = {  
@@ -27,21 +28,21 @@ const {
   RABBITMQ_USER,
   RABBITMQ_PASSWORD,
   RABBITMQ_ORDER_STATUS_QUEUE,
-  RABBITMQ_WAREHOUSE_DECLINE_QUEUE,
-  RABBITMQ_DELIVERY_DECLINE_QUEUE,
-  RABBITMQ_ORDER_DECLINE_QUEUE,
+  RABBITMQ_DELIVERY_ORDER_ACTION_QUEUE,
   RABBITMQ_SUBSCRIPTION_ACTION_QUEUE
 } = process.env;
 
 const login = RABBITMQ_USER || 'guest';
 const pwd = RABBITMQ_PASSWORD || 'guest';
 const ORDER_STATUS_QUEUE = RABBITMQ_ORDER_STATUS_QUEUE || 'ORDER_STATUS';
-const ORDER_DECLINE_QUEUE = RABBITMQ_ORDER_DECLINE_QUEUE || 'ORDER_DECLINE';
-const WAREHOUSE_DECLINE_QUEUE = RABBITMQ_WAREHOUSE_DECLINE_QUEUE || 'WAREHOUSE_DECLINE';
-const DELIVERY_DECLINE_QUEUE = RABBITMQ_DELIVERY_DECLINE_QUEUE || 'DELIVERY_DECLINE';
 const SUBSCRIPTION_ACTION_QUEUE = RABBITMQ_SUBSCRIPTION_ACTION_QUEUE || 'SUBSCRIPTION_ACTION';
+const DELIVERY_ORDER_ACTION_QUEUE = RABBITMQ_DELIVERY_ORDER_ACTION_QUEUE || DELIVERY_ORDER_ACTION_QUEUE;
 const host = RABBITMQ_HOST || 'rabbitmq-service';
 const port = RABBITMQ_PORT || '5672';
+
+exports.QUEUE = {
+    SUBSCRIPTION_ACTION_QUEUE: "SUBSCRIPTION_ACTION_QUEUE"
+};
 
 // Создание заказа
 exports.create = (userId, referenceId) => {
@@ -84,20 +85,37 @@ exports.decline = (orderId = null, userId = null) => {
 
 
 // Получение списка заказов пользователя
-exports.getOrders = (userId) => {
+exports.getOrders = (userId = null, status = null) => {
+  if(!userId) return [];
   return new Promise((resolve, reject) => {
     db.query(
       SQL.ORDER.FIND_BY_USER,
-      [userId],
+      [userId, status],
       (err, results) => {
         if (err) {
           return reject(err);
-        } else {
-          resolve(results?.rows ?? null);
+        } else {          
+          try {
+            // Проверяем наличие результатов и что это массив
+            if (!results?.rows || !Array.isArray(results.rows)) {
+              return resolve([]);
+            }
+            
+            // Преобразуем все записи в DTO
+            const orders = results.rows.map((order) => {
+              let o = new OrderDto(order);
+              return o;
+            }) 
+            console.log(orders)
+            resolve(orders);
+          } catch (e) {
+            // Обрабатываем возможные ошибки при создании DTO
+            reject(new Error('Failed to process orders data'));
+          }
         }
       }
     );
-  });
+  });  
 };
 
 // Получение заказа по ID заказа и ID пользователя
@@ -235,6 +253,19 @@ exports.orderStatusMessage = async (statusMessage) => {
 
 
 // ****************************************  Подключение к RabbitMQ и прослушивание очереди  *************************************************
+
+// отправить сообщение в шину 
+exports.sendMessage = async (queue = null, msg = null) => {
+  try {
+    if(!queue && !msg) return;
+    let client = new ClientProducerAMQP();
+    await client.sendMessage(queue, msg);    
+  } catch (error) {
+    console.log(`Ошибка ${error} при отправке статуса заказа ...`);
+  }  
+};
+
+
 async function startConsumer(queue, handler) {
   try {
      const connection = await amqp.connect(`amqp://${login}:${pwd}@${host}:${port}`);
@@ -258,38 +289,4 @@ async function startConsumer(queue, handler) {
           console.error(`Error connecting to RabbitMQ: ${error}`);
    }
 }
-
-/*
-  SUBSCRIPTION_ACTION_QUEUE - очередь управления статусом подписки
-  userId - идентификатор пользователя
-  action - ACTIVATED || DEACTIVATED
-*/
-startConsumer(SUBSCRIPTION_ACTION_QUEUE,
-  async (msg) => {
-  try {
-    if(!msg?.userId || !msg?.action ) 
-         throw(`msg?.userId=${msg?.userId} msg?.action=${msg?.action}`)
-    if(msg?.action !== exports.SUBSCRIPTION_ACTION.ACTIVATED && msg?.action !== exports.SUBSCRIPTION_ACTION.DEACTIVATED)        
-         throw(`msg?.action !== exports.SUBSCRIPTION_ACTION.ACTIVATED && msg?.action !== exports.SUBSCRIPTION_ACTION.ACTIVATED`)
-
-          new Promise((resolve, reject) => {
-          db.query(
-            (msg?.action == exports.SUBSCRIPTION_ACTION.ACTIVATED)
-            ? SQL.ORDER.SUBSCRIPTION_ACTIVATED
-            : SQL.ORDER.SUBSCRIPTION_DEACTIVATED,  [msg?.userId],
-            (err, results) => {
-              if (err) {
-                return reject(err);
-              } else {
-                resolve(results?.rows[0] ?? null);
-              }
-            }
-          );
-        });   
-
-       } catch (error) {
-         console.log(error);
-    }
-
-  });
 
