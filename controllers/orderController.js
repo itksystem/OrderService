@@ -1,7 +1,7 @@
 const { DateTime }    = require('luxon');
 const orderHelper = require('../helpers/OrderHelper');
 const common       = require('openfsm-common');  /* Библиотека с общими параметрами */
-const OrderDto   = require('openfsm-order-dto');
+const {OrderDto}   = require('openfsm-order-dto');
 const ProductDto   = require('openfsm-product-dto');
 const BasketItemDto   = require('openfsm-basket-item-dto');
 const MediaImageDto   = require('openfsm-media-image-dto');
@@ -46,34 +46,40 @@ const sendResponse = (res, statusCode, data) => {
 exports.create = async (req, res) => {    
     let order;
     let {referenceId} =  req.body;
-    if (!referenceId ) return sendResponse(res, 400, { message: "Invalid referenceId" });             
-    let userId = await authMiddleware.getUserId(req, res);
-    if (!userId ) return sendResponse(res, 400, { message: "Invalid user ID" });              
+    if (!referenceId ) 
+        throw(400)
+
+    let userId  = await authMiddleware.getUserId(req, res);
+    if (!userId ) 
+        throw(401)
+    
     try {
         order = new OrderDto(await orderHelper.create(userId, referenceId));// Создаем заказ
         if (!order) 
             throw(common.HTTP_CODES.SERVICE_UNAVAILABLE)        
-        const warehouse = await warehouseClient.createOrder( commonFunction.getJwtToken(req),  { orderId : order.getOrderId() }); // привязали товары в корзине к заказу
+        const warehouse = await warehouseClient.createOrder( 
+            commonFunction.getJwtToken(req),  
+            { orderId : order.orderId }); // привязали товары в корзине к заказу
         if(!warehouse .success) 
             throw(422)
+        console.log(req.body)
         orderHelper.sendMessage(
             orderHelper.QUEUE.DELIVERY_ORDER_ACTION_QUEUE, 
             {
               orderId : order?.orderId,
               referenceId : referenceId,              
               deliveryType : req.body.deliveryType ?? undefined,
-              postamat : req.body.postamat ?? undefined,
-              cdek : req.body.cdek ?? undefined,
-              address : req.body.cdek ?? undefined,
-              courier : req.body.courier ?? undefined,
-              postCode : req.body.courier ?? undefined,
-              postAddress : req.body.courier ?? undefined,
-              commentary : req.body.courier ?? undefined
+              address : req.body.address ?? undefined,              
+              postCode : req.body.postCode ?? undefined,
+              postAddress : req.body.postAddress ?? undefined,
+              commentary : req.body.commentary ?? undefined
             }
         );
-        sendResponse(res, 200, { status: true,  order });
-    } catch (error) {                         
-          orderHelper.decline(order.getOrderId(), userId);  // откатили транзакцию.
+        sendResponse(res, 200, { status: true,  orderId : order?.orderId });
+    } catch (error) {             
+        console.log(error)
+        if(order?.orderId)            
+          orderHelper.decline(order.orderId, userId);  // откатили транзакцию.
          sendResponse(res, (Number(error) || 500), { code: (Number(error) || 500), message:  new CommonFunctionHelper().getDescriptionByCode((Number(error) || 500)) });         
     }
 };
@@ -137,9 +143,15 @@ exports.getOrder = async (req, res) => {
     if (!userId) {  console.log("Invalid user ID");  throw(400); }
     if (!orderId) {  console.log("Invalid order ID" ); throw(400); }
     try {
-        let order = await orderHelper.getOrder(orderId, userId);
+        let order = new OrderDto(await orderHelper.getOrder(orderId, userId));
         if (!order) return sendResponse(res, 204, { status: false, order : {} });        
-        sendResponse(res, 200, { status: true,  order : new OrderDto(order), });
+        let detail  = await warehouseClient.getOrderDetails(commonFunction.getJwtToken(req), orderId);
+        let totalQuantity = detail?.data?.items?.reduce((quantity, item) => quantity + item.quantity, 0) || 0;
+        order.itemsCount  = totalQuantity || 0;
+        order.totalAmount = detail?.data?.totalAmount || 0;      
+        order.items       = detail?.data?.items || [];
+
+       sendResponse(res, 200, { status: true,  order });
     } catch (error) {
         console.error("Error getOrder:", error);
         sendResponse(res, (Number(error) || 500), { code: (Number(error) || 500), message:  new CommonFunctionHelper().getDescriptionByCode((Number(error) || 500)) });
