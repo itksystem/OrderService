@@ -67,7 +67,7 @@ exports.create = (userId, referenceId) => {
 exports.decline = (orderId = null, userId = null) => {
   console.log(`decline ${orderId} ${orderId}`);
   if(!orderId || !userId) return false;
-  let status = common.OrderStatus.CANCELED;
+  let status = common.OrderStatus.DECLINE;
   return new Promise((resolve, reject) => {
     db.query(
       SQL.ORDER.UPDATE_STATUS,
